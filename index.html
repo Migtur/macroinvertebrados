@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#2A4B39">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Contador de Macroinvertebrados Marinhos</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper: #E7E3D3;
+    --paper-card: #F5F2E6;
+    --ink: #202B22;
+    --ink-soft: #55604F;
+    --moss: #3D6B52;
+    --moss-dark: #2A4B39;
+    --rust: #A5503E;
+    --ochre: #B6862A;
+    --line: #C7C0A6;
+    --shadow: rgba(32,43,34,0.18);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; height:100%; overflow-x:hidden;}
+  body{
+    background:
+      linear-gradient(var(--paper), var(--paper)) ,
+      repeating-linear-gradient(0deg, rgba(85,96,79,0.05) 0, rgba(85,96,79,0.05) 1px, transparent 1px, transparent 28px);
+    font-family: 'Work Sans', -apple-system, sans-serif;
+    color: var(--ink);
+    min-height:100vh;
+    padding-bottom: 100px;
+  }
+  @font-face{
+    font-family:'Space Mono';
+    src: local('Space Mono');
+  }
+  .mono{ font-family:'Space Mono', 'Courier New', monospace; }
+
+  header{
+    background: var(--moss-dark);
+    color: #F0EDDC;
+    padding: 14px 16px 14px;
+    position: sticky; top:0; z-index: 30;
+    box-shadow: 0 3px 10px var(--shadow);
+  }
+  header h1{
+    margin:0; font-size: 17px; letter-spacing: 0.04em;
+    font-family:'Space Mono', monospace; text-transform: uppercase;
+  }
+  header .sub{ font-size:12px; opacity:0.75; margin-top:2px; font-family:'Space Mono', monospace;}
+
+  .project-bar{
+    display:flex; align-items:center; gap:8px; margin-top:10px;
+    background: rgba(240,237,220,0.1); border:1px solid rgba(240,237,220,0.35);
+    border-radius:8px; padding:8px 10px; cursor:pointer;
+  }
+  .project-bar .folder-icon{ font-size:15px; }
+  .project-bar .proj-name{ font-family:'Space Mono', monospace; font-size:13.5px; font-weight:700; flex:1; }
+  .project-bar .chevron{ font-size:11px; opacity:0.7; }
+  .project-bar .gear-icon{ font-size:15px; opacity:0.85; padding:2px 4px; }
+  .project-bar .gear-icon:active{ opacity:0.5; }
+
+  .level-presets{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .level-presets button{
+    padding:8px 12px; border-radius:7px; border:1px solid var(--line); background:#fff;
+    color: var(--moss-dark); font-family:'Space Mono', monospace; font-size:11.5px;
+  }
+  .level-presets button:active{ background: var(--moss); color:#fff; }
+
+  .session-bar{
+    display:flex; gap:8px; margin-top:10px; overflow-x:auto; padding-bottom:2px;
+  }
+  .session-bar input{
+    flex: 1 1 auto; min-width: 110px;
+    background: rgba(240,237,220,0.1);
+    border: 1px solid rgba(240,237,220,0.35);
+    color:#F0EDDC; border-radius:4px; padding:8px 10px; font-size:13px;
+    font-family:'Space Mono', monospace;
+  }
+  .session-bar input::placeholder{ color: rgba(240,237,220,0.55); }
+
+  .stats-strip{
+    display:flex; gap:10px; padding: 12px 16px 4px; flex-wrap: wrap;
+  }
+  .stat-tag{
+    background: var(--paper-card); border:1px solid var(--line); border-radius: 20px;
+    padding: 6px 14px; font-family:'Space Mono', monospace; font-size:12.5px;
+    display:flex; align-items:center; gap:6px; color: var(--ink-soft);
+  }
+  .stat-tag.clickable{ cursor:pointer; }
+  .stat-tag.clickable:active{ background:#EFE9D6; }
+  .stat-tag b{ color: var(--moss-dark); font-size:14px; }
+  .stat-tag.save-status{ color: var(--moss-dark); border-color: var(--moss); font-size:11px; }
+  .stat-tag.save-status.pending{ color: var(--ochre); border-color: var(--ochre); }
+
+  .view-toggle{
+    display:flex; gap:6px; padding: 4px 16px 10px;
+  }
+  .view-toggle button{
+    flex:1; padding:8px 10px; border-radius:7px; border:1px solid var(--line);
+    background:#fff; color: var(--ink-soft); font-family:'Space Mono', monospace;
+    font-size:11.5px; text-transform:uppercase; letter-spacing:0.03em;
+  }
+  .view-toggle button.active{ background: var(--moss-dark); color:#F0EDDC; border-color: var(--moss-dark); }
+
+  .search-bar{
+    display:flex; align-items:center; gap:8px; margin: 2px 16px 8px;
+    background:#fff; border:1px solid var(--line); border-radius:9px; padding:9px 12px;
+  }
+  .search-bar .search-ico{ font-size:14px; opacity:0.55; }
+  .search-bar input{
+    flex:1; border:none; outline:none; font-size:14px; font-family:'Work Sans', sans-serif;
+    background:transparent; color: var(--ink);
+  }
+  .search-bar .search-clear{
+    font-size:18px; color: var(--ink-soft); padding:0 4px; line-height:1;
+  }
+
+  .no-results{
+    text-align:center; color: var(--ink-soft); font-family:'Space Mono', monospace;
+    font-size:13px; padding: 30px 10px;
+  }
+
+  .del-btn{
+    position:absolute; top:6px; right:6px; width:20px; height:20px; border-radius:50%;
+    background: rgba(165,80,62,0.12); color: var(--rust); font-size:15px; line-height:1;
+    display:flex; align-items:center; justify-content:center; z-index:2;
+  }
+  .del-btn:active{ background: var(--rust); color:#fff; }
+
+  main{ padding: 6px 14px 20px; }
+
+  .group{ margin-top: 18px; }
+  .group-title{
+    font-family:'Space Mono', monospace; font-size: 12px; letter-spacing:0.12em;
+    text-transform: uppercase; color: var(--ink-soft);
+    display:flex; align-items:center; gap:8px; margin: 0 2px 8px;
+    cursor:pointer; padding:4px 2px;
+  }
+  .group-title::after{ content:""; flex:1; height:1px; background: var(--line); }
+  .group-title .chevron-ico{ font-size:11px; color: var(--moss); width:12px; }
+  .group-title .gt-label{ white-space:nowrap; }
+  .group-title .gt-count{
+    font-size:10px; opacity:0.7; text-transform:none; letter-spacing:normal; white-space:nowrap;
+  }
+  .group-title.recent-title{ color: var(--ochre); cursor:default; }
+  .group-title.recent-title::after{ background: var(--ochre); opacity:0.35; }
+
+  .grid{
+    display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .card{
+    position:relative; background: var(--paper-card);
+    border:1px solid var(--line); border-radius: 10px;
+    padding: 12px 10px 10px; user-select:none; cursor:pointer;
+    box-shadow: 0 1px 0 var(--line);
+    transition: transform .06s ease, box-shadow .06s ease;
+    min-height: 108px; display:flex; flex-direction:column; justify-content:space-between;
+  }
+  .card:active{ transform: scale(0.96); box-shadow:none; background:#EFE9D6; }
+  .card.counted{ border-color: var(--moss); }
+  .card .tag{
+    font-family:'Space Mono', monospace; font-size: 10px; color: var(--ochre);
+    letter-spacing:0.06em; text-transform:uppercase;
+  }
+  .card .name{ font-size: 14px; font-weight: 600; line-height:1.25; margin-top:2px; }
+  .card .code{ font-size:11px; color: var(--ink-soft); font-family:'Space Mono', monospace; margin-top:1px;}
+  .card-bottom{ display:flex; align-items:flex-end; justify-content:space-between; margin-top:8px; }
+  .count{
+    font-family:'Space Mono', monospace; font-weight:700; font-size: 26px; color: var(--moss-dark);
+    line-height:1;
+  }
+  .minus-btn{
+    width:30px; height:30px; border-radius:50%; border:1px solid var(--line);
+    background:#fff; color: var(--rust); font-size:18px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .minus-btn:active{ background: var(--rust); color:#fff; }
+
+  .custom-card{
+    border-style:dashed; display:flex; align-items:center; justify-content:center;
+    color: var(--ink-soft); font-family:'Space Mono', monospace; font-size:13px; text-align:center;
+    min-height:108px;
+  }
+
+  footer{
+    position: fixed; bottom:0; left:0; right:0;
+    background: var(--paper-card); border-top:1px solid var(--line);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    display:flex; gap:10px; z-index:40; box-shadow: 0 -3px 10px var(--shadow);
+  }
+  .btn{
+    flex:1; padding: 13px 10px; border-radius: 8px; border:none;
+    font-family:'Space Mono', monospace; font-size:13px; letter-spacing:0.03em;
+    text-transform:uppercase; display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .btn-export{ background: var(--moss); color:#fff; }
+  .btn-export:active{ background: var(--moss-dark); }
+  .btn-reset{ background:#fff; color: var(--rust); border:1px solid var(--rust); }
+  .btn-reset:active{ background: var(--rust); color:#fff; }
+
+  .modal-overlay{
+    position:fixed; inset:0; background: rgba(32,43,34,0.55); z-index:50;
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal{
+    background: var(--paper-card); width:100%; max-width: 480px;
+    border-radius: 14px 14px 0 0; padding: 20px 18px calc(20px + env(safe-area-inset-bottom));
+    max-height: 85vh; overflow-y:auto;
+  }
+  .modal h3{ margin:0 0 14px; font-family:'Space Mono', monospace; font-size:15px; text-transform:uppercase;}
+  .modal input, .modal select{
+    width:100%; padding:11px 12px; margin-bottom:10px; border-radius:7px;
+    border:1px solid var(--line); font-size:14px; font-family: inherit; background:#fff;
+  }
+  .modal-actions{ display:flex; gap:10px; margin-top:6px; }
+  .modal-actions button{ flex:1; padding:12px; border-radius:7px; border:none; font-size:14px; font-family:'Space Mono', monospace;}
+  .modal-actions .confirm{ background: var(--moss); color:#fff; }
+  .modal-actions .cancel{ background:#fff; border:1px solid var(--line); color: var(--ink-soft); }
+
+  .file-drop{
+    border: 1.5px dashed var(--moss); border-radius: 10px; padding: 18px 14px;
+    text-align:center; color: var(--moss-dark); font-family:'Space Mono', monospace;
+    font-size: 13px; background: rgba(61,107,82,0.06);
+  }
+  .file-drop:active{ background: rgba(61,107,82,0.14); }
+
+  .list-row{
+    display:flex; align-items:center; gap:10px; padding:10px 8px;
+    border-bottom:1px solid var(--line);
+  }
+  .list-row:last-child{ border-bottom:none; }
+  .list-row .info{ flex:1; min-width:0; }
+  .list-row .info .primary{ font-size:14px; font-weight:600; }
+  .list-row .info .secondary{ font-size:11.5px; color:var(--ink-soft); font-family:'Space Mono', monospace; }
+  .list-row .row-btn{
+    padding:7px 12px; border-radius:6px; border:1px solid var(--line); background:#fff;
+    font-family:'Space Mono', monospace; font-size:11.5px; white-space:nowrap;
+  }
+  .list-row .row-btn.primary-btn{ background: var(--moss); color:#fff; border-color:var(--moss); }
+  .list-row .row-btn.danger-btn{ color: var(--rust); border-color: var(--rust); }
+  .list-row .row-btn.danger-btn:active{ background: var(--rust); color:#fff; }
+  .empty-note{ font-size:13px; color:var(--ink-soft); padding:10px 4px; }
+
+  .toast{
+    position:fixed; top:14px; left:50%; transform: translateX(-50%) translateY(-60px);
+    background: var(--ink); color:#F0EDDC; padding:10px 18px; border-radius:8px;
+    font-family:'Space Mono', monospace; font-size:12.5px; z-index:60;
+    transition: transform .25s ease; box-shadow: 0 4px 14px var(--shadow);
+  }
+  .toast.show{ transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Contador &middot; Macroinvertebrados Marinhos</h1>
+  <div class="sub" id="dateLabel"></div>
+  <div class="project-bar">
+    <span class="folder-icon" onclick="openProjectModal()">&#128193;</span>
+    <span class="proj-name" onclick="openProjectModal()" id="projectNameLabel">Projeto</span>
+    <span class="chevron" onclick="openProjectModal()">trocar &#9662;</span>
+    <span class="gear-icon" onclick="openLevelsModalEdit()" title="Organização do projeto">&#9881;</span>
+  </div>
+  <div class="session-bar" id="sessionBar"></div>
+</header>
+
+<div class="stats-strip">
+  <div class="stat-tag">Indivíduos <b id="totalCount">0</b></div>
+  <div class="stat-tag">Taxa registados <b id="taxaCount">0</b></div>
+  <div class="stat-tag clickable" onclick="openSessionsModal()">Sessões guardadas <b id="sessionsCount">0</b></div>
+  <div class="stat-tag save-status" id="saveStatus">&#10003; guardado</div>
+</div>
+<div class="view-toggle">
+  <button data-mode="taxonomic" onclick="setViewMode('taxonomic')">Grupo taxonómico</button>
+  <button data-mode="functional" onclick="setViewMode('functional')">Grupo funcional</button>
+</div>
+<div class="search-bar">
+  <span class="search-ico">&#128269;</span>
+  <input id="searchInput" placeholder="Procurar espécie, família ou código..." oninput="render()" />
+  <span class="search-clear" id="searchClear" onclick="clearSearch()" style="display:none;">&times;</span>
+</div>
+
+<main id="groupsContainer"></main>
+
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <h3>Adicionar taxon</h3>
+    <input id="newTaxonGroup" placeholder="Grupo taxonómico (ex. Polychaeta)" />
+    <input id="newTaxonName" placeholder="Nome / família / espécie" />
+    <input id="newTaxonCode" placeholder="Código curto (opcional)" />
+    <select id="newTaxonFunc"></select>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeAddModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmAddTaxon()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="bulkModal">
+  <div class="modal">
+    <h3>Importar lista de espécies</h3>
+    <div class="file-drop" onclick="document.getElementById('fileInput').click()">
+      <div style="font-size:20px;">&#8593;</div>
+      <div>Carregar ficheiro Excel (.xlsx) ou CSV</div>
+      <div style="font-size:11px; color:var(--ink-soft); margin-top:2px;">toca para escolher da tablet</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)" />
+    <p style="font-size:12px; color:var(--ink-soft); margin: 12px 0 6px;">
+      O ficheiro pode ter colunas com estes nomes (em qualquer ordem): <b>Grupo</b>, <b>Nome/Espécie</b>, <b>Código</b>, <b>Grupo funcional</b>. Sem cabeçalhos reconhecidos, assume a ordem Grupo, Nome, Código, Funcional.
+    </p>
+    <p style="font-size:12px; color:var(--ink-soft); margin: 0 0 8px;">
+      Ou escreve/cola diretamente abaixo (uma linha por taxon, separado por ponto e vírgula):
+    </p>
+    <textarea id="bulkText" rows="6" style="width:100%; padding:11px; border-radius:7px; border:1px solid var(--line); font-family:'Space Mono',monospace; font-size:12.5px;" placeholder="Polychaeta; Nephtyidae; NPH; Predador/Carnívoro
+Amphipoda; Aoridae; AOR; Filtrador"></textarea>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeBulkModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmBulkImport()">Importar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="saveSessionModal">
+  <div class="modal">
+    <h3>Guardar sessão</h3>
+    <p style="font-size:13px; color:var(--ink-soft); margin-top:0;">
+      Isto guarda a combinação atual de <b id="saveSessionLevelsLabel"></b> dentro do projeto <b id="saveSessionProjectName"></b> e limpa os contadores para começares a próxima. A lista de espécies do projeto mantém-se.
+    </p>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeSaveSessionModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmSaveSession()">Guardar e limpar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="levelsModal">
+  <div class="modal">
+    <h3>Organização do projeto</h3>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:0;">
+      Define os níveis de organização deste projeto — desde um único "Local" até uma hierarquia como Zona › Local › Réplica. Cada nível vira um campo separado ao registares dados.
+    </p>
+    <div class="level-presets">
+      <button type="button" onclick="fillLevelsPreset('Local')">Só local</button>
+      <button type="button" onclick="fillLevelsPreset('Zona, Local')">Zona › Local</button>
+      <button type="button" onclick="fillLevelsPreset('Zona, Local, Réplica')">Zona › Local › Réplica</button>
+    </div>
+    <input id="levelsInput" placeholder="Níveis separados por vírgula, ex: Zona, Local, Réplica" />
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeLevelsModal()">Cancelar</button>
+      <button class="confirm" onclick="confirmLevels()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sessionsModal">
+  <div class="modal">
+    <h3>Sessões do projeto</h3>
+    <div id="sessionsListArea"></div>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeSessionsModal()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="projectModal">
+  <div class="modal">
+    <h3>Projetos</h3>
+    <div id="projectsListArea"></div>
+    <input id="newProjectName" placeholder="Nome do novo projeto" style="margin-top:14px;" />
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeProjectModal()">Fechar</button>
+      <button class="confirm" onclick="confirmCreateProject()">Criar projeto</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <button class="btn btn-reset" onclick="openSaveSessionModal()">Guardar sessão</button>
+  <button class="btn btn-export" onclick="exportProjectCSV()">Exportar projeto</button>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Grupos funcionais (guildas tróficas) e cor de identificação
+const FUNCTIONAL_GROUPS = {
+  "Filtrador":              "#2E6E8E",
+  "Depositívoro":           "#8A6A2E",
+  "Predador/Carnívoro":     "#A5503E",
+  "Herbívoro/Pastador":     "#4C7A3D",
+  "Omnívoro":               "#7A5C8A",
+  "Detritívoro/Carroneiro": "#5C5C5C"
+};
+const FUNC_GROUP_LIST = Object.keys(FUNCTIONAL_GROUPS);
+
+// items: [nome, código, grupo funcional]
+const DEFAULT_TAXA = [
+  {group:"Polychaeta", items:[
+    ["Nereididae","NER","Predador/Carnívoro"],
+    ["Spionidae","SPI","Depositívoro"],
+    ["Capitellidae","CAP","Depositívoro"],
+    ["Serpulidae","SPU","Filtrador"],
+    ["Sabellidae","SAB","Filtrador"],
+    ["Glyceridae","GLY","Predador/Carnívoro"],
+    ["Terebellidae","TER","Depositívoro"],
+    ["Syllidae","SYL","Omnívoro"]
+  ]},
+  {group:"Amphipoda", items:[
+    ["Gammaridae","GAM","Detritívoro/Carroneiro"],
+    ["Talitridae","TAL","Detritívoro/Carroneiro"],
+    ["Ampeliscidae","AMP","Filtrador"],
+    ["Caprellidae","CPR","Herbívoro/Pastador"]
+  ]},
+  {group:"Isopoda", items:[
+    ["Idoteidae","IDO","Herbívoro/Pastador"],
+    ["Sphaeromatidae","SPH","Detritívoro/Carroneiro"],
+    ["Cirolanidae","CIR","Predador/Carnívoro"]
+  ]},
+  {group:"Decapoda", items:[
+    ["Portunidae","POR","Predador/Carnívoro"],
+    ["Palaemonidae","PAL","Omnívoro"],
+    ["Diogenidae","DIO","Omnívoro"],
+    ["Grapsidae","GRA","Herbívoro/Pastador"]
+  ]},
+  {group:"Bivalvia", items:[
+    ["Mytilidae","MYT","Filtrador"],
+    ["Veneridae","VEN","Filtrador"],
+    ["Tellinidae","TEL","Depositívoro"],
+    ["Cardiidae","CAR","Filtrador"]
+  ]},
+  {group:"Gastropoda", items:[
+    ["Littorinidae","LIT","Herbívoro/Pastador"],
+    ["Muricidae","MUR","Predador/Carnívoro"],
+    ["Trochidae","TRO","Herbívoro/Pastador"],
+    ["Nassariidae","NAS","Detritívoro/Carroneiro"]
+  ]},
+  {group:"Echinodermata", items:[
+    ["Ophiuroidea (ofiuras)","OPH","Depositívoro"],
+    ["Asteroidea (estrelas-do-mar)","AST","Predador/Carnívoro"],
+    ["Echinoidea (ouriços)","ECH","Herbívoro/Pastador"],
+    ["Holothuroidea (pepinos-do-mar)","HOL","Depositívoro"]
+  ]},
+  {group:"Outros grupos", items:[
+    ["Nemertea","NMT","Predador/Carnívoro"],
+    ["Sipuncula","SIP","Depositívoro"],
+    ["Cumacea","CUM","Depositívoro"],
+    ["Tanaidacea","TAN","Detritívoro/Carroneiro"],
+    ["Anthozoa","ANT","Filtrador"]
+  ]}
+];
+
+const INDEX_KEY = "projects-index";
+function projectKey(id){ return "project-data-" + id; }
+
+function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+function emptyProject(){
+  return {
+    customTaxa: [],            // {group, name, code, func}
+    viewMode: "taxonomic",
+    levels: ["Local"],         // hierarquia configurável, ex: ["Zona","Local","Réplica"]
+    draft: { path: [""], observer:"", habitat:"", counts:{} },
+    sessions: [],                // {id, path:[], date, observer, habitat, counts, savedAt}
+    recent: []                  // chaves de taxa tocados recentemente (mais recente primeiro)
+  };
+}
+
+let projectsIndex = []; // [{id, name, createdAt}]
+let currentProjectId = null;
+let project = emptyProject();
+
+function loadIndex(){
+  try{
+    const raw = localStorage.getItem(INDEX_KEY);
+    if(raw){
+      const saved = JSON.parse(raw);
+      projectsIndex = saved.projects || [];
+      currentProjectId = saved.currentProjectId || null;
+    }
+  }catch(e){ /* nada guardado */ }
+  if(!projectsIndex.length){
+    const id = genId();
+    projectsIndex = [{id, name:"Projeto 1", createdAt: Date.now()}];
+    currentProjectId = id;
+    saveIndex();
+  }
+  if(!currentProjectId || !projectsIndex.find(p=>p.id===currentProjectId)){
+    currentProjectId = projectsIndex[0].id;
+  }
+}
+
+function saveIndex(){
+  try{
+    localStorage.setItem(INDEX_KEY, JSON.stringify({projects: projectsIndex, currentProjectId}));
+  }catch(e){ console.error("Falha ao guardar índice de projetos", e); }
+}
+
+function loadProject(id){
+  try{
+    const raw = localStorage.getItem(projectKey(id));
+    project = raw ? Object.assign(emptyProject(), JSON.parse(raw)) : emptyProject();
+  }catch(e){ project = emptyProject(); }
+  migrateProject();
+  resetCollapsed();
+}
+
+// Compatibilidade com projetos guardados antes de existir hierarquia configurável
+function migrateProject(){
+  if(!project.levels || !project.levels.length) project.levels = ["Local"];
+  if(!project.draft) project.draft = { path: project.levels.map(()=>""), observer:"", habitat:"", counts:{} };
+  if(!project.draft.path){
+    project.draft.path = [project.draft.site || ""];
+    delete project.draft.site;
+  }
+  while(project.draft.path.length < project.levels.length) project.draft.path.push("");
+  if(!project.recent) project.recent = [];
+
+  project.sessions = (project.sessions||[]).map(s=>{
+    if(!s.path){ s.path = [s.site || ""]; delete s.site; }
+    return s;
+  });
+}
+
+let saveTimer = null;
+function saveProject(){
+  markUnsaved();
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flushSave, 250);
+}
+
+// Grava imediatamente, sem esperar pelo debounce — usado antes de a app poder fechar/ir para segundo plano
+function flushSave(){
+  clearTimeout(saveTimer);
+  try{
+    localStorage.setItem(projectKey(currentProjectId), JSON.stringify(project));
+    markSaved();
+  }
+  catch(e){ console.error("Falha ao guardar projeto", e); showToast("Não foi possível guardar os dados"); }
+}
+
+function markUnsaved(){
+  const el = document.getElementById('saveStatus');
+  if(el){ el.textContent = '&hellip; a guardar'; el.innerHTML = '&hellip; a guardar'; el.classList.add('pending'); }
+}
+function markSaved(){
+  const el = document.getElementById('saveStatus');
+  if(el){
+    const t = new Date().toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
+    el.innerHTML = '&#10003; guardado ' + t;
+    el.classList.remove('pending');
+  }
+}
+
+// Rede de segurança: garante que nada fica por guardar se a app for fechada,
+// minimizada ou o ecrã do tablet apagado a meio do trabalho de campo.
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'hidden') flushSave();
+});
+window.addEventListener('pagehide', flushSave);
+window.addEventListener('beforeunload', flushSave);
+
+function currentProjectName(){
+  const p = projectsIndex.find(p=>p.id===currentProjectId);
+  return p ? p.name : "Projeto";
+}
+
+function keyFor(group, name, code){ return group+"||"+name+"||"+code; }
+
+function allGroups(){
+  const merged = JSON.parse(JSON.stringify(DEFAULT_TAXA));
+  project.customTaxa.forEach(t=>{
+    let g = merged.find(m=>m.group.toLowerCase()===t.group.toLowerCase());
+    if(!g){ g = {group:t.group, items:[]}; merged.push(g); }
+    g.items.push([t.name, t.code || "", t.func || "Omnívoro", true]);
+  });
+  return merged;
+}
+
+// achata tudo numa lista única de taxa: {taxGroup, name, code, func, isCustom}
+function flatTaxa(){
+  const flat = [];
+  allGroups().forEach(g=>{
+    g.items.forEach(item=>{
+      const [name, code, func, isCustom] = item;
+      flat.push({taxGroup:g.group, name, code, func: func || "Omnívoro", isCustom: !!isCustom});
+    });
+  });
+  return flat;
+}
+
+function groupedByTaxonomic(){
+  const flat = flatTaxa();
+  const map = {};
+  const order = [];
+  flat.forEach(t=>{
+    if(!map[t.taxGroup]){ map[t.taxGroup] = []; order.push(t.taxGroup); }
+    map[t.taxGroup].push(t);
+  });
+  return order.map(g=>({title:g, taxa:map[g]}));
+}
+
+function groupedByFunctional(){
+  const flat = flatTaxa();
+  const map = {};
+  FUNC_GROUP_LIST.forEach(f=> map[f] = []);
+  flat.forEach(t=>{
+    if(!map[t.func]) map[t.func] = [];
+    map[t.func].push(t);
+  });
+  return FUNC_GROUP_LIST.filter(f=>map[f].length>0).map(f=>({title:f, taxa:map[f]}));
+}
+
+let collapsedGroups = new Set();
+
+function resetCollapsed(){
+  collapsedGroups = new Set();
+  const sections = project.viewMode === 'functional' ? groupedByFunctional() : groupedByTaxonomic();
+  sections.forEach(s => collapsedGroups.add(s.title));
+}
+
+function toggleGroup(title){
+  if(collapsedGroups.has(title)) collapsedGroups.delete(title);
+  else collapsedGroups.add(title);
+  render();
+}
+
+function normalizeSearch(s){
+  return String(s||"").toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+function matchesSearch(t, q){
+  if(!q) return true;
+  const hay = normalizeSearch(t.name + ' ' + (t.code||'') + ' ' + t.taxGroup + ' ' + t.func);
+  return hay.includes(q);
+}
+
+function touchRecent(k){
+  if(!project.recent) project.recent = [];
+  project.recent = project.recent.filter(x=>x!==k);
+  project.recent.unshift(k);
+  if(project.recent.length > 12) project.recent.length = 12;
+}
+
+function makeCard(t, searchActive){
+  const k = keyFor(t.taxGroup, t.name, t.code);
+  const count = project.draft.counts[k] || 0;
+  const funcColor = FUNCTIONAL_GROUPS[t.func] || '#999';
+  const card = document.createElement('div');
+  card.className = 'card' + (count>0 ? ' counted' : '');
+  card.style.borderLeft = `4px solid ${funcColor}`;
+  card.innerHTML = `
+    ${t.isCustom ? '<div class="del-btn" title="Remover taxon">&times;</div>' : ''}
+    <div>
+      <div class="tag">${project.viewMode==='functional' ? t.taxGroup : t.func}</div>
+      <div class="name">${t.name}</div>
+      ${t.code ? `<div class="code">${t.code}</div>` : ''}
+    </div>
+    <div class="card-bottom">
+      <div class="count">${count}</div>
+      <div class="minus-btn">&minus;</div>
+    </div>
+  `;
+  card.addEventListener('click', (e)=>{
+    if(e.target.closest('.del-btn')){
+      removeCustomTaxon(t.taxGroup, t.name, t.code);
+      return;
+    }
+    if(e.target.closest('.minus-btn')){
+      project.draft.counts[k] = Math.max(0, (project.draft.counts[k]||0) - 1);
+    } else {
+      project.draft.counts[k] = (project.draft.counts[k]||0) + 1;
+      touchRecent(k);
+    }
+    saveProject();
+    render();
+  });
+  return card;
+}
+
+function clearSearch(){
+  document.getElementById('searchInput').value = "";
+  render();
+}
+
+function render(){
+  document.getElementById('dateLabel').textContent = new Date().toLocaleDateString('pt-PT', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  document.getElementById('projectNameLabel').textContent = currentProjectName();
+  renderSessionBar();
+
+  document.querySelectorAll('.view-toggle button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mode === project.viewMode);
+  });
+
+  const container = document.getElementById('groupsContainer');
+  container.innerHTML = "";
+
+  const q = normalizeSearch(document.getElementById('searchInput').value);
+  const searchActive = q.length > 0;
+  document.getElementById('searchClear').style.display = searchActive ? 'block' : 'none';
+
+  // ---- Secção "Recentes" (sempre aberta, ignora colapso) ----
+  if(!searchActive && project.recent && project.recent.length){
+    const flat = flatTaxa();
+    const byKey = {};
+    flat.forEach(t=> byKey[keyFor(t.taxGroup, t.name, t.code)] = t);
+    const recentTaxa = project.recent.map(k=>byKey[k]).filter(Boolean);
+    if(recentTaxa.length){
+      const groupDiv = document.createElement('div');
+      groupDiv.className = 'group';
+      const title = document.createElement('div');
+      title.className = 'group-title recent-title';
+      title.innerHTML = `&#9201; Recentes`;
+      groupDiv.appendChild(title);
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      recentTaxa.forEach(t => grid.appendChild(makeCard(t, searchActive)));
+      groupDiv.appendChild(grid);
+      container.appendChild(groupDiv);
+    }
+  }
+
+  const allSections = project.viewMode === 'functional' ? groupedByFunctional() : groupedByTaxonomic();
+  let totalMatches = 0;
+
+  allSections.forEach(sec=>{
+    const taxa = sec.taxa.filter(t => matchesSearch(t, q));
+    if(searchActive && taxa.length === 0) return;
+    totalMatches += taxa.length;
+
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'group';
+    const title = document.createElement('div');
+    title.className = 'group-title';
+    const isOpen = searchActive ? true : !collapsedGroups.has(sec.title);
+    const countedInGroup = sec.taxa.reduce((n,t)=> n + ((project.draft.counts[keyFor(t.taxGroup,t.name,t.code)]||0) > 0 ? 1 : 0), 0);
+    title.innerHTML = `
+      <span class="chevron-ico">${isOpen ? '&#9662;' : '&#9656;'}</span>
+      ${project.viewMode === 'functional' ? `<span style="width:9px;height:9px;border-radius:50%;background:${FUNCTIONAL_GROUPS[sec.title]||'#999'};display:inline-block;"></span>` : ''}
+      <span class="gt-label">${sec.title}</span>
+      <span class="gt-count">${taxa.length}${countedInGroup ? ` &middot; ${countedInGroup} c/ contagem` : ''}</span>
+    `;
+    if(!searchActive) title.addEventListener('click', ()=> toggleGroup(sec.title));
+    groupDiv.appendChild(title);
+
+    if(isOpen){
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+      taxa.forEach(t => grid.appendChild(makeCard(t, searchActive)));
+      groupDiv.appendChild(grid);
+    }
+    container.appendChild(groupDiv);
+  });
+
+  if(searchActive && totalMatches === 0){
+    const empty = document.createElement('div');
+    empty.className = 'no-results';
+    empty.textContent = 'Nenhuma espécie encontrada';
+    container.appendChild(empty);
+  }
+
+  // global add-taxon card at the end
+  const addGroupDiv = document.createElement('div');
+  addGroupDiv.className = 'group';
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  const addCard = document.createElement('div');
+  addCard.className = 'card custom-card';
+  addCard.innerHTML = '+ Adicionar taxon';
+  addCard.addEventListener('click', openAddModal);
+  const bulkCard = document.createElement('div');
+  bulkCard.className = 'card custom-card';
+  bulkCard.innerHTML = '&#8593; Importar lista';
+  bulkCard.addEventListener('click', openBulkModal);
+  grid.appendChild(addCard);
+  grid.appendChild(bulkCard);
+  addGroupDiv.appendChild(grid);
+  container.appendChild(addGroupDiv);
+
+  updateStats();
+}
+
+function removeCustomTaxon(group, name, code){
+  const k = keyFor(group, name, code);
+  delete project.draft.counts[k];
+  project.customTaxa = project.customTaxa.filter(t => !(t.group===group && t.name===name && (t.code||"")===code));
+  saveProject();
+  render();
+  showToast("Taxon removido");
+}
+
+function updateStats(){
+  let total = 0, taxaWithCount = 0;
+  Object.values(project.draft.counts).forEach(c=>{ total += c; if(c>0) taxaWithCount++; });
+  document.getElementById('totalCount').textContent = total;
+  document.getElementById('taxaCount').textContent = taxaWithCount;
+  document.getElementById('sessionsCount').textContent = project.sessions.length;
+}
+
+function renderSessionBar(){
+  const container = document.getElementById('sessionBar');
+  container.innerHTML = "";
+  project.levels.forEach((levelName, i)=>{
+    const inp = document.createElement('input');
+    inp.placeholder = levelName;
+    inp.value = project.draft.path[i] || "";
+    inp.addEventListener('input', (e)=>{
+      project.draft.path[i] = e.target.value;
+      saveProject();
+    });
+    container.appendChild(inp);
+  });
+  const obsInp = document.createElement('input');
+  obsInp.placeholder = "Observador";
+  obsInp.value = project.draft.observer;
+  obsInp.addEventListener('input', (e)=>{ project.draft.observer = e.target.value; saveProject(); });
+  container.appendChild(obsInp);
+
+  const habInp = document.createElement('input');
+  habInp.placeholder = "Habitat / substrato";
+  habInp.value = project.draft.habitat;
+  habInp.addEventListener('input', (e)=>{ project.draft.habitat = e.target.value; saveProject(); });
+  container.appendChild(habInp);
+}
+
+function setViewMode(mode){
+  project.viewMode = mode;
+  saveProject();
+  resetCollapsed();
+  render();
+}
+
+function populateFuncSelect(){
+  const sel = document.getElementById('newTaxonFunc');
+  sel.innerHTML = FUNC_GROUP_LIST.map(f=>`<option value="${f}">${f}</option>`).join('');
+}
+
+function openAddModal(){ populateFuncSelect(); document.getElementById('addModal').classList.add('open'); }
+function closeAddModal(){
+  document.getElementById('addModal').classList.remove('open');
+  document.getElementById('newTaxonGroup').value = "";
+  document.getElementById('newTaxonName').value = "";
+  document.getElementById('newTaxonCode').value = "";
+}
+function confirmAddTaxon(){
+  const group = document.getElementById('newTaxonGroup').value.trim();
+  const name = document.getElementById('newTaxonName').value.trim();
+  const code = document.getElementById('newTaxonCode').value.trim();
+  const func = document.getElementById('newTaxonFunc').value;
+  if(!group || !name){ showToast("Indica pelo menos grupo e nome"); return; }
+  project.customTaxa.push({group, name, code, func});
+  saveProject();
+  closeAddModal();
+  render();
+  showToast("Taxon adicionado ao projeto");
+}
+
+function openBulkModal(){ document.getElementById('bulkModal').classList.add('open'); }
+function closeBulkModal(){
+  document.getElementById('bulkModal').classList.remove('open');
+  document.getElementById('bulkText').value = "";
+  document.getElementById('fileInput').value = "";
+}
+
+function normalizeHeader(s){
+  return String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+}
+
+function rowsToLines(rows){
+  if(!rows || !rows.length) return [];
+  let dataRows = rows;
+  let colMap = {group:0, name:1, code:2, func:3};
+  const headerKeywords = ['grupo','nome','especie','taxon','famil','cod','funcional','guilda','trofic'];
+  const first = rows[0].map(normalizeHeader);
+  const looksLikeHeader = first.some(c => headerKeywords.some(k=>c.includes(k)));
+  if(looksLikeHeader){
+    colMap = {};
+    first.forEach((c, i)=>{
+      if(c.includes('funcional') || c.includes('guilda') || c.includes('trofic')) colMap.func = i;
+      else if(c.includes('cod')) colMap.code = i;
+      else if(c.includes('nome') || c.includes('especie') || c.includes('taxon') || c.includes('famil')) colMap.name = i;
+      else if(c.includes('grupo') || c.includes('taxo')) colMap.group = i;
+    });
+    dataRows = rows.slice(1);
+  }
+  const lines = [];
+  dataRows.forEach(r=>{
+    if(!r || r.every(c=> String(c).trim()==="")) return;
+    const group = colMap.group!==undefined ? String(r[colMap.group]||"").trim() : "";
+    const name = colMap.name!==undefined ? String(r[colMap.name]||"").trim() : String(r[0]||"").trim();
+    const code = colMap.code!==undefined ? String(r[colMap.code]||"").trim() : "";
+    const func = colMap.func!==undefined ? String(r[colMap.func]||"").trim() : "";
+    if(!name) return;
+    lines.push(`${group || "Importado"}; ${name}; ${code}; ${func}`);
+  });
+  return lines;
+}
+
+async function handleFileUpload(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  if(typeof XLSX === 'undefined'){
+    showToast("Sem ligação à internet — usa a caixa de texto abaixo para colar a lista manualmente");
+    return;
+  }
+  try{
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, {type:'array'});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+    const lines = rowsToLines(rows);
+    if(!lines.length){ showToast("Não encontrei linhas com dados no ficheiro"); return; }
+    const existing = document.getElementById('bulkText').value.trim();
+    document.getElementById('bulkText').value = existing ? existing + "\n" + lines.join('\n') : lines.join('\n');
+    showToast(`${lines.length} linhas lidas — revê e toca em Importar`);
+  }catch(err){
+    console.error(err);
+    showToast("Não foi possível ler este ficheiro");
+  }
+}
+function confirmBulkImport(){
+  const raw = document.getElementById('bulkText').value;
+  const lines = raw.split('\n').map(l=>l.trim()).filter(Boolean);
+  let added = 0;
+  lines.forEach(line=>{
+    const parts = line.split(';').map(p=>p.trim());
+    if(parts.length < 2) return;
+    const [group, name, code, func] = parts;
+    if(!group || !name) return;
+    const validFunc = FUNC_GROUP_LIST.includes(func) ? func : "Omnívoro";
+    project.customTaxa.push({group, name, code: code||"", func: validFunc});
+    added++;
+  });
+  if(added === 0){ showToast("Nenhuma linha válida encontrada"); return; }
+  saveProject();
+  closeBulkModal();
+  render();
+  showToast(`${added} taxa importados para o projeto`);
+}
+
+// ---- Guardar sessão dentro do projeto ----
+function openSaveSessionModal(){
+  const hasData = Object.values(project.draft.counts).some(c=>c>0);
+  if(!hasData){ showToast("Sem contagens para guardar"); return; }
+  document.getElementById('saveSessionProjectName').textContent = currentProjectName();
+  document.getElementById('saveSessionLevelsLabel').textContent = project.levels.join(' › ');
+  document.getElementById('saveSessionModal').classList.add('open');
+}
+function closeSaveSessionModal(){ document.getElementById('saveSessionModal').classList.remove('open'); }
+function confirmSaveSession(){
+  const session = {
+    id: genId(),
+    path: project.draft.path.slice(),
+    date: new Date().toLocaleDateString('pt-PT'),
+    observer: project.draft.observer,
+    habitat: project.draft.habitat,
+    counts: Object.assign({}, project.draft.counts),
+    savedAt: Date.now()
+  };
+  project.sessions.push(session);
+  project.draft = { path: project.levels.map(()=>""), observer:"", habitat:"", counts:{} };
+  saveProject();
+  closeSaveSessionModal();
+  render();
+  showToast("Sessão guardada no projeto");
+}
+
+// ---- Lista de sessões guardadas ----
+function openSessionsModal(){
+  renderSessionsList();
+  document.getElementById('sessionsModal').classList.add('open');
+}
+function closeSessionsModal(){ document.getElementById('sessionsModal').classList.remove('open'); }
+function renderSessionsList(){
+  const area = document.getElementById('sessionsListArea');
+  if(!project.sessions.length){
+    area.innerHTML = '<div class="empty-note">Ainda não há sessões guardadas neste projeto.</div>';
+    return;
+  }
+  area.innerHTML = "";
+  project.sessions.slice().reverse().forEach(s=>{
+    const total = Object.values(s.counts).reduce((a,b)=>a+b,0);
+    const label = (s.path && s.path.filter(Boolean).length) ? s.path.join(' › ') : '(sem local)';
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.innerHTML = `
+      <div class="info">
+        <div class="primary">${label}</div>
+        <div class="secondary">${s.date} &middot; ${total} indivíduos${s.observer ? ' &middot; '+s.observer : ''}</div>
+      </div>
+      <button class="row-btn primary-btn">Reabrir</button>
+      <button class="row-btn danger-btn">Apagar</button>
+    `;
+    row.querySelector('.primary-btn').addEventListener('click', ()=> reopenSession(s.id));
+    row.querySelector('.danger-btn').addEventListener('click', ()=> deleteSession(s.id));
+    area.appendChild(row);
+  });
+}
+function deleteSession(id){
+  project.sessions = project.sessions.filter(s=>s.id!==id);
+  saveProject();
+  renderSessionsList();
+  updateStats();
+  showToast("Sessão apagada");
+}
+function reopenSession(id){
+  const idx = project.sessions.findIndex(s=>s.id===id);
+  if(idx === -1) return;
+  const draftHasData = Object.values(project.draft.counts).some(c=>c>0) || project.draft.path.some(v=>v && v.trim());
+  if(draftHasData){
+    showToast("Guarda ou limpa a sessão atual antes de reabrir outra");
+    return;
+  }
+  const s = project.sessions[idx];
+  project.draft = {
+    path: project.levels.map((_, i)=> (s.path && s.path[i]) || ""),
+    observer: s.observer || "",
+    habitat: s.habitat || "",
+    counts: Object.assign({}, s.counts)
+  };
+  project.sessions.splice(idx, 1);
+  saveProject();
+  closeSessionsModal();
+  render();
+  showToast("Sessão reaberta — já podes consultar e editar as contagens");
+}
+
+// ---- Gestão de projetos ----
+function openProjectModal(){
+  renderProjectsList();
+  document.getElementById('projectModal').classList.add('open');
+}
+function closeProjectModal(){ document.getElementById('projectModal').classList.remove('open'); document.getElementById('newProjectName').value=""; }
+function renderProjectsList(){
+  const area = document.getElementById('projectsListArea');
+  area.innerHTML = "";
+  projectsIndex.forEach(p=>{
+    const isCurrent = p.id === currentProjectId;
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.innerHTML = `
+      <div class="info">
+        <div class="primary">${p.name}${isCurrent ? ' &middot; <span style=\"color:var(--moss-dark)\">atual</span>' : ''}</div>
+      </div>
+      ${isCurrent ? '' : '<button class="row-btn primary-btn">Usar</button>'}
+      ${projectsIndex.length > 1 ? '<button class="row-btn danger-btn">Apagar</button>' : ''}
+    `;
+    if(!isCurrent){
+      row.querySelector('.primary-btn').addEventListener('click', ()=> switchProject(p.id));
+    }
+    const delBtn = row.querySelector('.danger-btn');
+    if(delBtn) delBtn.addEventListener('click', ()=> deleteProject(p.id));
+    area.appendChild(row);
+  });
+}
+function switchProject(id){
+  currentProjectId = id;
+  saveIndex();
+  loadProject(id);
+  closeProjectModal();
+  render();
+  showToast(`A usar o projeto "${currentProjectName()}"`);
+}
+
+let pendingProjectName = null;
+let levelsModalMode = 'edit'; // 'create' | 'edit'
+
+function confirmCreateProject(){
+  const name = document.getElementById('newProjectName').value.trim();
+  if(!name){ showToast("Indica um nome para o projeto"); return; }
+  pendingProjectName = name;
+  levelsModalMode = 'create';
+  closeProjectModal();
+  document.getElementById('levelsInput').value = "Local";
+  document.getElementById('levelsModal').classList.add('open');
+}
+
+function openLevelsModalEdit(){
+  levelsModalMode = 'edit';
+  document.getElementById('levelsInput').value = project.levels.join(', ');
+  document.getElementById('levelsModal').classList.add('open');
+}
+function closeLevelsModal(){ document.getElementById('levelsModal').classList.remove('open'); }
+function fillLevelsPreset(text){ document.getElementById('levelsInput').value = text; }
+
+function confirmLevels(){
+  const raw = document.getElementById('levelsInput').value.trim();
+  const levels = raw.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!levels.length){ showToast("Indica pelo menos um nível"); return; }
+
+  if(levelsModalMode === 'create'){
+    const id = genId();
+    projectsIndex.push({id, name: pendingProjectName, createdAt: Date.now()});
+    currentProjectId = id;
+    saveIndex();
+    project = emptyProject();
+    project.levels = levels;
+    project.draft.path = levels.map(()=> "");
+    saveProject();
+    showToast(`Projeto "${pendingProjectName}" criado`);
+  } else {
+    project.levels = levels;
+    const oldPath = project.draft.path || [];
+    project.draft.path = levels.map((_, i)=> oldPath[i] || "");
+    saveProject();
+    showToast("Organização do projeto atualizada");
+  }
+  closeLevelsModal();
+  render();
+}
+function deleteProject(id){
+  if(projectsIndex.length <= 1) return;
+  projectsIndex = projectsIndex.filter(p=>p.id!==id);
+  try{ localStorage.removeItem(projectKey(id)); }catch(e){}
+  if(currentProjectId === id){
+    currentProjectId = projectsIndex[0].id;
+    loadProject(currentProjectId);
+  }
+  saveIndex();
+  renderProjectsList();
+  render();
+  showToast("Projeto apagado");
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+// ---- Exportar todo o projeto (sessões guardadas + rascunho atual, se tiver dados) ----
+function exportProjectCSV(){
+  const sessions = project.sessions.slice();
+  const draftHasData = Object.values(project.draft.counts).some(c=>c>0);
+  if(draftHasData){
+    sessions.push({
+      path: project.draft.path,
+      date: new Date().toLocaleDateString('pt-PT'),
+      observer: project.draft.observer,
+      habitat: project.draft.habitat,
+      counts: project.draft.counts
+    });
+  }
+  if(!sessions.length){ showToast("Sem dados para exportar neste projeto"); return; }
+
+  const levelHeaders = project.levels;
+  const rows = [["Projeto", ...levelHeaders, "Data","Observador","Habitat","Grupo taxonomico","Taxon","Codigo","Grupo funcional","Contagem"]];
+  const flat = flatTaxa();
+  const funcTotals = {};
+  const projName = currentProjectName();
+
+  sessions.forEach(sess=>{
+    const pathVals = levelHeaders.map((_, i)=> (sess.path && sess.path[i]) || "");
+    flat.forEach(t=>{
+      const k = keyFor(t.taxGroup, t.name, t.code);
+      const count = sess.counts[k] || 0;
+      if(count > 0){
+        rows.push([projName, ...pathVals, sess.date, sess.observer, sess.habitat, t.taxGroup, t.name, t.code, t.func, count]);
+        funcTotals[t.func] = (funcTotals[t.func] || 0) + count;
+      }
+    });
+  });
+
+  rows.push([]);
+  rows.push([`Resumo por grupo funcional — projeto "${projName}" (${sessions.length} sessão/sessões)`]);
+  Object.entries(funcTotals).forEach(([f, c])=> rows.push([f, c]));
+
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
+  const projSlug = projName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+  const filename = `${projSlug}_macroinvertebrados_${new Date().toISOString().slice(0,10)}.csv`;
+
+  downloadOrShare(blob, filename, `Dados do projeto "${projName}"`);
+}
+
+// Tenta abrir o menu nativo de partilha do Android (para guardar direto no OneDrive,
+// Google Drive, email, etc.). Se o dispositivo/browser não suportar, faz download normal.
+async function downloadOrShare(blob, filename, shareText){
+  const file = new File([blob], filename, {type: blob.type});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({ files:[file], title: filename, text: shareText });
+      showToast("Partilhado");
+      return;
+    }catch(err){
+      if(err && err.name === 'AbortError') return; // utilizador cancelou o menu de partilha
+      // qualquer outro erro cai para o download normal abaixo
+    }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("CSV do projeto exportado");
+}
+
+// ---- arranque ----
+loadIndex();
+loadProject(currentProjectId);
+render();
+markSaved();
+
+// Regista o service worker para a app continuar a abrir mesmo sem internet,
+// depois da primeira vez que for aberta com ligação.
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(err=> console.error('SW falhou:', err));
+  });
+}
+</script>
+</body>
+</html>
