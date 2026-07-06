@@ -283,7 +283,7 @@
 </div>
 <div class="view-toggle">
   <button data-mode="taxonomic" onclick="setViewMode('taxonomic')">Grupo taxonómico</button>
-  <button data-mode="functional" onclick="setViewMode('functional')">Grupo funcional</button>
+  <button data-mode="functional" onclick="setViewMode('functional')">Filtro</button>
 </div>
 <div class="search-bar">
   <span class="search-ico">&#128269;</span>
@@ -299,7 +299,7 @@
     <input id="newTaxonGroup" placeholder="Grupo taxonómico (ex. Aves, Peixes, Polychaeta)" />
     <input id="newTaxonName" placeholder="Nome / família / espécie" />
     <input id="newTaxonCode" placeholder="Código curto (opcional)" />
-    <input id="newTaxonFunc" list="funcGroupOptions" placeholder="Grupo funcional (opcional, à tua escolha)" />
+    <input id="newTaxonFunc" list="funcGroupOptions" placeholder="Filtro (opcional, à tua escolha)" />
     <datalist id="funcGroupOptions"></datalist>
     <div class="modal-actions">
       <button class="cancel" onclick="closeAddModal()">Cancelar</button>
@@ -318,7 +318,7 @@
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)" />
     <p style="font-size:12px; color:var(--ink-soft); margin: 12px 0 6px;">
-      O ficheiro pode ter colunas com estes nomes (em qualquer ordem): <b>Grupo</b>, <b>Nome/Espécie</b>, <b>Código</b>, <b>Grupo funcional</b>. Sem cabeçalhos reconhecidos, assume a ordem Grupo, Nome, Código, Funcional. O grupo funcional é livre — usa os termos que fizerem sentido para o teu grupo de organismos.
+      O ficheiro pode ter colunas com estes nomes (em qualquer ordem): <b>Grupo</b>, <b>Nome/Espécie</b>, <b>Código</b>, <b>Filtro</b>. Sem cabeçalhos reconhecidos, assume a ordem Grupo, Nome, Código, Filtro. O filtro é livre — usa os termos que fizerem sentido para o teu grupo de organismos (ex. guilda trófica, habitat, estatuto de conservação, o que precisares).
     </p>
     <p style="font-size:12px; color:var(--ink-soft); margin: 0 0 8px;">
       Ou escreve/cola diretamente abaixo (uma linha por taxon, separado por ponto e vírgula):
@@ -401,9 +401,9 @@ const FUNC_COLOR_PALETTE = [
   "#7A5C8A", "#5C5C5C", "#3D6B52", "#B6862A",
   "#6E4A2E", "#2E6E5C", "#8E2E5C", "#2E4A8E"
 ];
-const NO_FUNC_LABEL = "Sem grupo funcional";
+const NO_FUNC_LABEL = "Sem filtro";
 
-// Devolve (e regista, se ainda não existir) a cor associada a um grupo funcional
+// Devolve (e regista, se ainda não existir) a cor associada a um filtro
 // dentro do projeto atual. Nomes de grupo são livres — definidos pelo utilizador.
 function getFuncColor(name){
   if(!name) return '#999';
@@ -431,7 +431,7 @@ function emptyProject(){
     customTaxa: [],            // {group, name, code, func}
     viewMode: "taxonomic",
     levels: ["Local"],         // hierarquia configurável, ex: ["Zona","Local","Réplica"]
-    funcGroups: {},              // nome do grupo funcional -> cor (definido pelo utilizador, por projeto)
+    funcGroups: {},              // nome do filtro -> cor (definido pelo utilizador, por projeto)
     draft: { path: [""], observer:"", habitat:"", counts:{} },
     sessions: [],                // {id, path:[], date, observer, habitat, counts, savedAt}
     recent: []                  // chaves de taxa tocados recentemente (mais recente primeiro)
@@ -822,7 +822,7 @@ function confirmAddTaxon(){
   const code = document.getElementById('newTaxonCode').value.trim();
   const func = document.getElementById('newTaxonFunc').value.trim();
   if(!group || !name){ showToast("Indica pelo menos grupo e nome"); return; }
-  if(func) getFuncColor(func); // regista a cor deste grupo funcional, se for novo
+  if(func) getFuncColor(func); // regista a cor deste filtro, se for novo
   project.customTaxa.push({group, name, code, func});
   saveProject();
   closeAddModal();
@@ -845,13 +845,13 @@ function rowsToLines(rows){
   if(!rows || !rows.length) return [];
   let dataRows = rows;
   let colMap = {group:0, name:1, code:2, func:3};
-  const headerKeywords = ['grupo','nome','especie','taxon','famil','cod','funcional','guilda','trofic'];
+  const headerKeywords = ['grupo','nome','especie','taxon','famil','cod','funcional','filtro','guilda','trofic'];
   const first = rows[0].map(normalizeHeader);
   const looksLikeHeader = first.some(c => headerKeywords.some(k=>c.includes(k)));
   if(looksLikeHeader){
     colMap = {};
     first.forEach((c, i)=>{
-      if(c.includes('funcional') || c.includes('guilda') || c.includes('trofic')) colMap.func = i;
+      if(c.includes('funcional') || c.includes('filtro') || c.includes('guilda') || c.includes('trofic')) colMap.func = i;
       else if(c.includes('cod')) colMap.code = i;
       else if(c.includes('nome') || c.includes('especie') || c.includes('taxon') || c.includes('famil')) colMap.name = i;
       else if(c.includes('grupo') || c.includes('taxo')) colMap.group = i;
@@ -902,7 +902,7 @@ function confirmBulkImport(){
     if(parts.length < 2) return;
     const [group, name, code, func] = parts;
     if(!group || !name) return;
-    if(func) getFuncColor(func); // regista a cor deste grupo funcional, se for novo
+    if(func) getFuncColor(func); // regista a cor deste filtro, se for novo
     project.customTaxa.push({group, name, code: code||"", func: func||""});
     added++;
   });
@@ -1124,7 +1124,7 @@ function buildProjectRows(includeDraft){
   if(!sessions.length) return null;
 
   const levelHeaders = project.levels;
-  const rows = [["Projeto", ...levelHeaders, "Data","Observador","Habitat","Grupo taxonomico","Taxon","Codigo","Grupo funcional","Contagem"]];
+  const rows = [["Projeto", ...levelHeaders, "Data","Observador","Habitat","Grupo taxonomico","Taxon","Codigo","Filtro","Contagem"]];
   const flat = flatTaxa();
   const funcTotals = {};
   const projName = currentProjectName();
@@ -1142,7 +1142,7 @@ function buildProjectRows(includeDraft){
   });
 
   rows.push([]);
-  rows.push([`Resumo por grupo funcional — projeto "${projName}" (${sessions.length} sessão/sessões)`]);
+  rows.push([`Resumo por filtro — projeto "${projName}" (${sessions.length} sessão/sessões)`]);
   Object.entries(funcTotals).forEach(([f, c])=> rows.push([f, c]));
 
   return { rows, sessionsCount: sessions.length, projName };
