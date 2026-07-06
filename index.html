@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>Contador de Macroinvertebrados Marinhos</title>
+<title>Contador de Organismos</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
@@ -263,7 +263,7 @@
 <body>
 
 <header>
-  <h1>Contador &middot; Macroinvertebrados Marinhos</h1>
+  <h1>Contador &middot; Organismos</h1>
   <div class="sub" id="dateLabel"></div>
   <div class="project-bar">
     <span class="folder-icon" onclick="openProjectModal()">&#128193;</span>
@@ -279,6 +279,7 @@
   <div class="stat-tag">Taxa registados <b id="taxaCount">0</b></div>
   <div class="stat-tag clickable" onclick="openSessionsModal()">Sessões guardadas <b id="sessionsCount">0</b></div>
   <div class="stat-tag save-status" id="saveStatus">&#10003; guardado</div>
+  <div class="stat-tag save-status" id="backupStatus" style="color:var(--ink-soft); border-color:var(--line);">&#128196; sem backup ainda</div>
 </div>
 <div class="view-toggle">
   <button data-mode="taxonomic" onclick="setViewMode('taxonomic')">Grupo taxonómico</button>
@@ -295,10 +296,11 @@
 <div class="modal-overlay" id="addModal">
   <div class="modal">
     <h3>Adicionar taxon</h3>
-    <input id="newTaxonGroup" placeholder="Grupo taxonómico (ex. Polychaeta)" />
+    <input id="newTaxonGroup" placeholder="Grupo taxonómico (ex. Aves, Peixes, Polychaeta)" />
     <input id="newTaxonName" placeholder="Nome / família / espécie" />
     <input id="newTaxonCode" placeholder="Código curto (opcional)" />
-    <select id="newTaxonFunc"></select>
+    <input id="newTaxonFunc" list="funcGroupOptions" placeholder="Grupo funcional (opcional, à tua escolha)" />
+    <datalist id="funcGroupOptions"></datalist>
     <div class="modal-actions">
       <button class="cancel" onclick="closeAddModal()">Cancelar</button>
       <button class="confirm" onclick="confirmAddTaxon()">Adicionar</button>
@@ -316,13 +318,13 @@
     </div>
     <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFileUpload(event)" />
     <p style="font-size:12px; color:var(--ink-soft); margin: 12px 0 6px;">
-      O ficheiro pode ter colunas com estes nomes (em qualquer ordem): <b>Grupo</b>, <b>Nome/Espécie</b>, <b>Código</b>, <b>Grupo funcional</b>. Sem cabeçalhos reconhecidos, assume a ordem Grupo, Nome, Código, Funcional.
+      O ficheiro pode ter colunas com estes nomes (em qualquer ordem): <b>Grupo</b>, <b>Nome/Espécie</b>, <b>Código</b>, <b>Grupo funcional</b>. Sem cabeçalhos reconhecidos, assume a ordem Grupo, Nome, Código, Funcional. O grupo funcional é livre — usa os termos que fizerem sentido para o teu grupo de organismos.
     </p>
     <p style="font-size:12px; color:var(--ink-soft); margin: 0 0 8px;">
       Ou escreve/cola diretamente abaixo (uma linha por taxon, separado por ponto e vírgula):
     </p>
-    <textarea id="bulkText" rows="6" style="width:100%; padding:11px; border-radius:7px; border:1px solid var(--line); font-family:'Space Mono',monospace; font-size:12.5px;" placeholder="Polychaeta; Nephtyidae; NPH; Predador/Carnívoro
-Amphipoda; Aoridae; AOR; Filtrador"></textarea>
+    <textarea id="bulkText" rows="6" style="width:100%; padding:11px; border-radius:7px; border:1px solid var(--line); font-family:'Space Mono',monospace; font-size:12.5px;" placeholder="Aves; Turdus merula; TUME; Insetívoro
+Polychaeta; Nereididae; NER; Predador"></textarea>
     <div class="modal-actions">
       <button class="cancel" onclick="closeBulkModal()">Cancelar</button>
       <button class="confirm" onclick="confirmBulkImport()">Importar</button>
@@ -392,72 +394,32 @@ Amphipoda; Aoridae; AOR; Filtrador"></textarea>
 <div class="toast" id="toast"></div>
 
 <script>
-// Grupos funcionais (guildas tróficas) e cor de identificação
-const FUNCTIONAL_GROUPS = {
-  "Filtrador":              "#2E6E8E",
-  "Depositívoro":           "#8A6A2E",
-  "Predador/Carnívoro":     "#A5503E",
-  "Herbívoro/Pastador":     "#4C7A3D",
-  "Omnívoro":               "#7A5C8A",
-  "Detritívoro/Carroneiro": "#5C5C5C"
-};
-const FUNC_GROUP_LIST = Object.keys(FUNCTIONAL_GROUPS);
-
-// items: [nome, código, grupo funcional]
-const DEFAULT_TAXA = [
-  {group:"Polychaeta", items:[
-    ["Nereididae","NER","Predador/Carnívoro"],
-    ["Spionidae","SPI","Depositívoro"],
-    ["Capitellidae","CAP","Depositívoro"],
-    ["Serpulidae","SPU","Filtrador"],
-    ["Sabellidae","SAB","Filtrador"],
-    ["Glyceridae","GLY","Predador/Carnívoro"],
-    ["Terebellidae","TER","Depositívoro"],
-    ["Syllidae","SYL","Omnívoro"]
-  ]},
-  {group:"Amphipoda", items:[
-    ["Gammaridae","GAM","Detritívoro/Carroneiro"],
-    ["Talitridae","TAL","Detritívoro/Carroneiro"],
-    ["Ampeliscidae","AMP","Filtrador"],
-    ["Caprellidae","CPR","Herbívoro/Pastador"]
-  ]},
-  {group:"Isopoda", items:[
-    ["Idoteidae","IDO","Herbívoro/Pastador"],
-    ["Sphaeromatidae","SPH","Detritívoro/Carroneiro"],
-    ["Cirolanidae","CIR","Predador/Carnívoro"]
-  ]},
-  {group:"Decapoda", items:[
-    ["Portunidae","POR","Predador/Carnívoro"],
-    ["Palaemonidae","PAL","Omnívoro"],
-    ["Diogenidae","DIO","Omnívoro"],
-    ["Grapsidae","GRA","Herbívoro/Pastador"]
-  ]},
-  {group:"Bivalvia", items:[
-    ["Mytilidae","MYT","Filtrador"],
-    ["Veneridae","VEN","Filtrador"],
-    ["Tellinidae","TEL","Depositívoro"],
-    ["Cardiidae","CAR","Filtrador"]
-  ]},
-  {group:"Gastropoda", items:[
-    ["Littorinidae","LIT","Herbívoro/Pastador"],
-    ["Muricidae","MUR","Predador/Carnívoro"],
-    ["Trochidae","TRO","Herbívoro/Pastador"],
-    ["Nassariidae","NAS","Detritívoro/Carroneiro"]
-  ]},
-  {group:"Echinodermata", items:[
-    ["Ophiuroidea (ofiuras)","OPH","Depositívoro"],
-    ["Asteroidea (estrelas-do-mar)","AST","Predador/Carnívoro"],
-    ["Echinoidea (ouriços)","ECH","Herbívoro/Pastador"],
-    ["Holothuroidea (pepinos-do-mar)","HOL","Depositívoro"]
-  ]},
-  {group:"Outros grupos", items:[
-    ["Nemertea","NMT","Predador/Carnívoro"],
-    ["Sipuncula","SIP","Depositívoro"],
-    ["Cumacea","CUM","Depositívoro"],
-    ["Tanaidacea","TAN","Detritívoro/Carroneiro"],
-    ["Anthozoa","ANT","Filtrador"]
-  ]}
+// Paleta de cores usada para atribuir automaticamente uma cor a cada grupo
+// funcional à medida que vai sendo criado (por projeto — já não são fixos).
+const FUNC_COLOR_PALETTE = [
+  "#2E6E8E", "#8A6A2E", "#A5503E", "#4C7A3D",
+  "#7A5C8A", "#5C5C5C", "#3D6B52", "#B6862A",
+  "#6E4A2E", "#2E6E5C", "#8E2E5C", "#2E4A8E"
 ];
+const NO_FUNC_LABEL = "Sem grupo funcional";
+
+// Devolve (e regista, se ainda não existir) a cor associada a um grupo funcional
+// dentro do projeto atual. Nomes de grupo são livres — definidos pelo utilizador.
+function getFuncColor(name){
+  if(!name) return '#999';
+  if(!project.funcGroups) project.funcGroups = {};
+  if(project.funcGroups[name]) return project.funcGroups[name];
+  const idx = Object.keys(project.funcGroups).length % FUNC_COLOR_PALETTE.length;
+  const color = FUNC_COLOR_PALETTE[idx];
+  project.funcGroups[name] = color;
+  saveProject();
+  return color;
+}
+
+// A lista de espécies/taxa começa sempre vazia — cada projeto define a sua própria
+// (por importação, colagem manual, ou adição espécie a espécie), seja para
+// macroinvertebrados, aves, peixes, ou qualquer outro grupo de organismos.
+const DEFAULT_TAXA = [];
 
 const INDEX_KEY = "projects-index";
 function projectKey(id){ return "project-data-" + id; }
@@ -469,6 +431,7 @@ function emptyProject(){
     customTaxa: [],            // {group, name, code, func}
     viewMode: "taxonomic",
     levels: ["Local"],         // hierarquia configurável, ex: ["Zona","Local","Réplica"]
+    funcGroups: {},              // nome do grupo funcional -> cor (definido pelo utilizador, por projeto)
     draft: { path: [""], observer:"", habitat:"", counts:{} },
     sessions: [],                // {id, path:[], date, observer, habitat, counts, savedAt}
     recent: []                  // chaves de taxa tocados recentemente (mais recente primeiro)
@@ -524,6 +487,7 @@ function migrateProject(){
   }
   while(project.draft.path.length < project.levels.length) project.draft.path.push("");
   if(!project.recent) project.recent = [];
+  if(!project.funcGroups) project.funcGroups = {};
 
   project.sessions = (project.sessions||[]).map(s=>{
     if(!s.path){ s.path = [s.site || ""]; delete s.site; }
@@ -592,7 +556,7 @@ function flatTaxa(){
   allGroups().forEach(g=>{
     g.items.forEach(item=>{
       const [name, code, func, isCustom] = item;
-      flat.push({taxGroup:g.group, name, code, func: func || "Omnívoro", isCustom: !!isCustom});
+      flat.push({taxGroup:g.group, name, code, func: func || "", isCustom: !!isCustom});
     });
   });
   return flat;
@@ -612,12 +576,13 @@ function groupedByTaxonomic(){
 function groupedByFunctional(){
   const flat = flatTaxa();
   const map = {};
-  FUNC_GROUP_LIST.forEach(f=> map[f] = []);
+  const order = [];
   flat.forEach(t=>{
-    if(!map[t.func]) map[t.func] = [];
-    map[t.func].push(t);
+    const key = t.func || NO_FUNC_LABEL;
+    if(!map[key]){ map[key] = []; order.push(key); }
+    map[key].push(t);
   });
-  return FUNC_GROUP_LIST.filter(f=>map[f].length>0).map(f=>({title:f, taxa:map[f]}));
+  return order.map(f=>({title:f, taxa:map[f]}));
 }
 
 let collapsedGroups = new Set();
@@ -653,7 +618,7 @@ function touchRecent(k){
 function makeCard(t, searchActive){
   const k = keyFor(t.taxGroup, t.name, t.code);
   const count = project.draft.counts[k] || 0;
-  const funcColor = FUNCTIONAL_GROUPS[t.func] || '#999';
+  const funcColor = getFuncColor(t.func);
   const card = document.createElement('div');
   card.className = 'card' + (count>0 ? ' counted' : '');
   card.style.borderLeft = `4px solid ${funcColor}`;
@@ -744,7 +709,7 @@ function render(){
     const countedInGroup = sec.taxa.reduce((n,t)=> n + ((project.draft.counts[keyFor(t.taxGroup,t.name,t.code)]||0) > 0 ? 1 : 0), 0);
     title.innerHTML = `
       <span class="chevron-ico">${isOpen ? '&#9662;' : '&#9656;'}</span>
-      ${project.viewMode === 'functional' ? `<span style="width:9px;height:9px;border-radius:50%;background:${FUNCTIONAL_GROUPS[sec.title]||'#999'};display:inline-block;"></span>` : ''}
+      ${project.viewMode === 'functional' ? `<span style="width:9px;height:9px;border-radius:50%;background:${getFuncColor(sec.title === NO_FUNC_LABEL ? '' : sec.title)};display:inline-block;"></span>` : ''}
       <span class="gt-label">${sec.title}</span>
       <span class="gt-count">${taxa.length}${countedInGroup ? ` &middot; ${countedInGroup} c/ contagem` : ''}</span>
     `;
@@ -838,24 +803,26 @@ function setViewMode(mode){
   render();
 }
 
-function populateFuncSelect(){
-  const sel = document.getElementById('newTaxonFunc');
-  sel.innerHTML = FUNC_GROUP_LIST.map(f=>`<option value="${f}">${f}</option>`).join('');
+function populateFuncOptions(){
+  const dl = document.getElementById('funcGroupOptions');
+  dl.innerHTML = Object.keys(project.funcGroups || {}).map(f=>`<option value="${f}">`).join('');
 }
 
-function openAddModal(){ populateFuncSelect(); document.getElementById('addModal').classList.add('open'); }
+function openAddModal(){ populateFuncOptions(); document.getElementById('addModal').classList.add('open'); }
 function closeAddModal(){
   document.getElementById('addModal').classList.remove('open');
   document.getElementById('newTaxonGroup').value = "";
   document.getElementById('newTaxonName').value = "";
   document.getElementById('newTaxonCode').value = "";
+  document.getElementById('newTaxonFunc').value = "";
 }
 function confirmAddTaxon(){
   const group = document.getElementById('newTaxonGroup').value.trim();
   const name = document.getElementById('newTaxonName').value.trim();
   const code = document.getElementById('newTaxonCode').value.trim();
-  const func = document.getElementById('newTaxonFunc').value;
+  const func = document.getElementById('newTaxonFunc').value.trim();
   if(!group || !name){ showToast("Indica pelo menos grupo e nome"); return; }
+  if(func) getFuncColor(func); // regista a cor deste grupo funcional, se for novo
   project.customTaxa.push({group, name, code, func});
   saveProject();
   closeAddModal();
@@ -935,8 +902,8 @@ function confirmBulkImport(){
     if(parts.length < 2) return;
     const [group, name, code, func] = parts;
     if(!group || !name) return;
-    const validFunc = FUNC_GROUP_LIST.includes(func) ? func : "Omnívoro";
-    project.customTaxa.push({group, name, code: code||"", func: validFunc});
+    if(func) getFuncColor(func); // regista a cor deste grupo funcional, se for novo
+    project.customTaxa.push({group, name, code: code||"", func: func||""});
     added++;
   });
   if(added === 0){ showToast("Nenhuma linha válida encontrada"); return; }
@@ -971,6 +938,7 @@ function confirmSaveSession(){
   closeSaveSessionModal();
   render();
   showToast("Sessão guardada no projeto");
+  autoBackupXLSX();
 }
 
 // ---- Lista de sessões guardadas ----
@@ -1138,19 +1106,22 @@ function showToast(msg){
 }
 
 // ---- Exportar todo o projeto (sessões guardadas + rascunho atual, se tiver dados) ----
-function exportProjectCSV(){
+// Constrói as linhas de dados do projeto (partilhado entre exportação manual e backup automático)
+function buildProjectRows(includeDraft){
   const sessions = project.sessions.slice();
-  const draftHasData = Object.values(project.draft.counts).some(c=>c>0);
-  if(draftHasData){
-    sessions.push({
-      path: project.draft.path,
-      date: new Date().toLocaleDateString('pt-PT'),
-      observer: project.draft.observer,
-      habitat: project.draft.habitat,
-      counts: project.draft.counts
-    });
+  if(includeDraft){
+    const draftHasData = Object.values(project.draft.counts).some(c=>c>0);
+    if(draftHasData){
+      sessions.push({
+        path: project.draft.path,
+        date: new Date().toLocaleDateString('pt-PT'),
+        observer: project.draft.observer,
+        habitat: project.draft.habitat,
+        counts: project.draft.counts
+      });
+    }
   }
-  if(!sessions.length){ showToast("Sem dados para exportar neste projeto"); return; }
+  if(!sessions.length) return null;
 
   const levelHeaders = project.levels;
   const rows = [["Projeto", ...levelHeaders, "Data","Observador","Habitat","Grupo taxonomico","Taxon","Codigo","Grupo funcional","Contagem"]];
@@ -1174,12 +1145,58 @@ function exportProjectCSV(){
   rows.push([`Resumo por grupo funcional — projeto "${projName}" (${sessions.length} sessão/sessões)`]);
   Object.entries(funcTotals).forEach(([f, c])=> rows.push([f, c]));
 
+  return { rows, sessionsCount: sessions.length, projName };
+}
+
+function exportProjectCSV(){
+  const built = buildProjectRows(true);
+  if(!built){ showToast("Sem dados para exportar neste projeto"); return; }
+  const { rows, projName } = built;
+
   const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(",")).join("\n");
   const blob = new Blob(["\uFEFF" + csv], {type: "text/csv;charset=utf-8;"});
   const projSlug = projName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-  const filename = `${projSlug}_macroinvertebrados_${new Date().toISOString().slice(0,10)}.csv`;
+  const filename = `${projSlug}_dados_${new Date().toISOString().slice(0,10)}.csv`;
 
   downloadOrShare(blob, filename, `Dados do projeto "${projName}"`);
+}
+
+// Backup automático em Excel, disparado sempre que uma sessão é gravada — sem
+// precisar de qualquer ação extra do utilizador. Fica na pasta Downloads do tablet.
+function autoBackupXLSX(){
+  if(typeof XLSX === 'undefined'){
+    showToast("Backup automático indisponível offline (sem ligação na primeira utilização)");
+    return;
+  }
+  const built = buildProjectRows(false);
+  if(!built) return;
+  const { rows, sessionsCount, projName } = built;
+  try{
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dados");
+    const projSlug = projName.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0');
+    const mm = String(now.getMinutes()).padStart(2,'0');
+    const dateStr = now.toISOString().slice(0,10);
+    const filename = `${projSlug}_${dateStr}_${hh}h${mm}_${sessionsCount}sessoes.xlsx`;
+    XLSX.writeFile(wb, filename);
+    markBackup();
+  }catch(err){
+    console.error(err);
+    showToast("Não foi possível criar o backup automático");
+  }
+}
+
+function markBackup(){
+  const el = document.getElementById('backupStatus');
+  if(el){
+    const t = new Date().toLocaleTimeString('pt-PT', {hour:'2-digit', minute:'2-digit'});
+    el.innerHTML = '&#128196; backup ' + t;
+    el.style.color = '';
+    el.style.borderColor = '';
+  }
 }
 
 // Tenta abrir o menu nativo de partilha do Android (para guardar direto no OneDrive,
